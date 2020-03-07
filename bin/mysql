@@ -45,6 +45,12 @@ stop () {
   printf "%sImage has stopped. \n"
 }
 
+sql_execute () {
+  source ./secrets/mysql
+  docker exec -i $DOCKER_MYSQL_NAME \
+      /bin/bash -c "exec mysql -uroot -p$MYSQL_ROOT_PASSWORD" <<< "$2"
+}
+
 case $1 in
   'start')
     start
@@ -55,6 +61,21 @@ case $1 in
   'logs')
     printf "%sTailing logs from image"
     docker logs -f $DOCKER_MYSQL_NAME
+    ;;
+  'create')
+    printf "%sCreating database. \n"
+    sql_execute "CREATE DATABASE IF NOT EXISTS $2"
+    printf "%sDatabase $2 has been created."
+    ;;
+  'drop')
+    printf "%Dropping database. \n"
+    sql_execute "DROP DATABASE IF EXISTS $2"
+    printf "%sDatabase $2 has been removed."
+    ;;
+  'raw')
+    printf "%Execute raw SQL against database. \n"
+    sql_execute "$2"
+    printf "%sQuery '$2' has been executed."
     ;;
   *)
     echo $"$(tput setaf 1) Invalid command. Usage: $0 {start|stop|logs}"
