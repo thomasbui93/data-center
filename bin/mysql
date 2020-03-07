@@ -1,0 +1,18 @@
+#!/bin/bash
+
+echo "Create dump folder if not exists."
+mkdir -p dump/mysql
+
+if [ ! -e "./secrets/mysql" ]; then
+  printf "%sSecret file ./secrets/mysql does not exist. \nExit. \n"
+  exit
+fi
+
+if ! grep -q MYSQL_ROOT_PASSWORD= "./secrets/mysql"; then
+  printf "%sSecret file ./secrets/mysql does not contains MYSQL_ROOT_PASSWORD. \nExit. \n"
+  exit
+fi
+
+printf " Valid configuration. Continue to start image."
+
+docker run --name k-mysql -v ./dump/mysql:/var/lib/mysql -e MYSQL_ROOT_PASSWORD_FILE=./secrets/mysql -d mysql:8
