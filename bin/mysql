@@ -1,18 +1,62 @@
 #!/bin/bash
+DOCKER_MYSQL_NAME=k-mysql
 
-echo "Create dump folder if not exists."
-mkdir -p dump/mysql
+start () {
+  IS_RUNNING=$(docker inspect -f '{{.State.Running}}' $DOCKER_MYSQL_NAME)
 
-if [ ! -e "./secrets/mysql" ]; then
-  printf "%sSecret file ./secrets/mysql does not exist. \nExit. \n"
-  exit
-fi
+  if [ "$IS_RUNNING" == "true" ]; then
+    printf "%sDocker image is already running. \n"
+    exit
+  fi
 
-if ! grep -q MYSQL_ROOT_PASSWORD= "./secrets/mysql"; then
-  printf "%sSecret file ./secrets/mysql does not contains MYSQL_ROOT_PASSWORD. \nExit. \n"
-  exit
-fi
+  if [ "$IS_RUNNING" == "false" ]; then
+    printf "%sRestarting docker image: "
+    docker start $DOCKER_MYSQL_NAME
+    printf "%sDocker image has started. \n"
+    exit
+  fi
 
-printf " Valid configuration. Continue to start image."
+  printf "%sCreate dump folder if not exists. \n"
+  mkdir -p dump/mysql
 
-docker run --name k-mysql -v ./dump/mysql:/var/lib/mysql -e MYSQL_ROOT_PASSWORD_FILE=./secrets/mysql -d mysql:8
+  if [ ! -e "./secrets/mysql" ]; then
+    printf "%sSecret file ./secrets/mysql does not exist. \nExit. \n"
+    exit
+  fi
+
+  printf "%sLoading secrets from ./secrets/mysql. \n"
+  source ./secrets/mysql
+
+  printf "%sValid configuration. Continue to start image. \n"
+
+  docker run \
+    --name $DOCKER_MYSQL_NAME \
+    -v "$(pwd)/dump/mysql:/var/lib/mysql" \
+    -e MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD \
+    -p 3306:3306 \
+    -d mysql:5.7
+  
+  printf "%sImage is running. \n"
+}
+
+stop () {
+  printf "%sStop image: "
+  docker stop $DOCKER_MYSQL_NAME
+  printf "%sImage has stopped. \n"
+}
+
+case $1 in
+  'start')
+    start
+    ;;
+  'stop')
+    stop
+    ;;
+  'logs')
+    printf "%sTailing logs from image"
+    docker logs -f $DOCKER_MYSQL_NAME
+    ;;
+  *)
+    echo $"$(tput setaf 1) Invalid command. Usage: $0 {start|stop|logs}"
+    exit 1
+esac
