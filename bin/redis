@@ -1,0 +1,62 @@
+#!/bin/bash
+DOCKER_REDIS_NAME=k-redis
+
+start () {
+  IS_RUNNING=$(docker inspect -f '{{.State.Running}}' $DOCKER_REDIS_NAME)
+
+  if [ "$IS_RUNNING" == "true" ]; then
+    printf "%sDocker image is already running. \n"
+    exit
+  fi
+
+  if [ "$IS_RUNNING" == "false" ]; then
+    printf "%sRestarting docker image: "
+    docker start $DOCKER_REDIS_NAME
+    printf "%sDocker image has started. \n"
+    exit
+  fi
+
+  printf "%sCreate dump folder if not exists. \n"
+  mkdir -p dump/redis
+
+  if [ ! -e "./secrets/redis" ]; then
+    printf "%sSecret file ./secrets/redis does not exist. \nExit. \n"
+    exit
+  fi
+
+  printf "%sLoading secrets from ./secrets/redis. \n"
+  source ./secrets/redis
+
+  printf "%sValid configuration. Continue to start image. \n"
+
+  docker run \
+    -d --name $DOCKER_REDIS_NAME \
+    -e REDIS_PASSWORD=$REDIS_AUTH \
+    -v "$(pwd)/dump/redis:/bitnami/redis/data" \
+    -p 6379:6379 \
+    bitnami/redis:5.0
+  
+  printf "%sRedis image is running. \n"
+}
+
+stop () {
+  printf "%sStop image: "
+  docker stop $DOCKER_REDIS_NAME
+  printf "%sImage has stopped. \n"
+}
+
+case $1 in
+  'start')
+    start
+    ;;
+  'stop')
+    stop
+    ;;
+  'logs')
+    printf "%sTailing logs from image"
+    docker logs -f $DOCKER_REDIS_NAME
+    ;;
+  *)
+    echo $"$(tput setaf 1) Invalid command. Usage: $0 {start|stop|logs}"
+    exit 1
+esac
